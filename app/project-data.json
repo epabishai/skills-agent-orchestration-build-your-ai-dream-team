@@ -1,0 +1,52 @@
+{
+  "projects": [
+    {
+      "name": "First Contribution Trail",
+      "owner": "Maya Chen",
+      "status": "Active",
+      "recentActivity": "Published a draft setup guide and labeled three starter issues for contributor feedback.",
+      "priority": "High",
+      "summary": "Make the first contribution less intimidating with a guided path from local setup to a small pull request. Try the guide and flag any missing steps."
+    },
+    {
+      "name": "Accessible Component Library",
+      "owner": "Theo Rivera",
+      "status": "On track",
+      "recentActivity": "Completed keyboard checks for the navigation menu; dialog reviews are next.",
+      "priority": "High",
+      "summary": "Build reusable interface components that work for keyboard and screen-reader users. Contributors can help test focus behavior and document examples."
+    },
+    {
+      "name": "Community Translation Kit",
+      "owner": "Amara Okafor",
+      "status": "At risk",
+      "recentActivity": "Prepared the glossary, but two language review slots remain unfilled ahead of the release.",
+      "priority": "Medium",
+      "summary": "Help local communities adapt the getting-started documentation. Volunteer reviewers are needed to check terminology before translations are published."
+    },
+    {
+      "name": "Sandbox Preview Service",
+      "owner": "Jonah Patel",
+      "status": "Blocked",
+      "recentActivity": "Finished the preview prototype; deployment is waiting for a shared hosting access review.",
+      "priority": "High",
+      "summary": "Give contributors a safe place to preview proposed changes. Hosting approval is required before deployment; setup documentation can still be reviewed."
+    },
+    {
+      "name": "Issue Template Refresh",
+      "owner": "Elena Brooks",
+      "status": "Completed",
+      "recentActivity": "Released clearer bug-report and feature-request templates with tested examples.",
+      "priority": "Low",
+      "summary": "Help maintainers reproduce problems and understand suggestions with fewer follow-up questions. The templates are ready to use; share feedback from real reports."
+    },
+    {
+      "name": "Maintainer Handoff Notes",
+      "owner": "Samira Lee",
+      "status": "Active",
+      "recentActivity": "Added release and triage checklists; invited maintainers to review ownership details.",
+      "priority": "Medium",
+      "summary": "Keep recurring maintenance tasks understandable when volunteers rotate. Review a checklist and suggest any project knowledge that should be written down."
+    }
+  ]
+}

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Project Pulse — project progress, priorities, and ways to contribute at a glance.">
+    <title>Project Pulse</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to projects</a>
+    <main id="main" class="dashboard" tabindex="-1">
+      <header class="dashboard-header">
+        <div class="header-copy">
+          <p class="eyebrow">Contributor workspace</p>
+          <h1>Project Pulse</h1>
+          <p class="header-description">A shared view of what’s moving, what needs attention, and where you can make a difference.</p>
+        </div>
+      </header>
+
+      <dl class="overview" aria-label="Project overview" hidden>
+        <div class="overview-item">
+          <dt class="overview-label">Total projects</dt>
+          <dd id="total-count" class="overview-value">—</dd>
+        </div>
+        <div class="overview-item">
+          <dt class="overview-label">High priority</dt>
+          <dd id="priority-count" class="overview-value">—</dd>
+        </div>
+        <div class="overview-item">
+          <dt class="overview-label">At risk or blocked</dt>
+          <dd id="attention-count" class="overview-value">—</dd>
+        </div>
+      </dl>
+
+      <section class="projects-section" aria-labelledby="projects-heading">
+        <div class="section-heading">
+          <h2 id="projects-heading">Projects</h2>
+          <p class="section-description">Meet the owners, catch up on progress, and find your next contribution.</p>
+          <p id="project-count" class="project-count">Not loaded</p>
+        </div>
+
+        <div id="loading-message" class="dashboard-message dashboard-message--loading" role="status" aria-atomic="true" hidden></div>
+        <div id="empty-message" class="dashboard-message dashboard-message--empty" role="status" aria-atomic="true" hidden></div>
+        <div id="error-message" class="dashboard-message dashboard-message--error" role="alert" aria-atomic="true" hidden></div>
+        <noscript>
+          <div class="dashboard-message dashboard-message--error">
+            <p class="message-title">JavaScript is required</p>
+            <p>Enable JavaScript and reload this page to load the projects from project-data.json.</p>
+          </div>
+        </noscript>
+        <ul id="project-grid" class="project-grid" role="list" aria-busy="false"></ul>
+      </section>
+
+      <footer class="dashboard-footer">
+        <p>A shared snapshot for contributors. Project details are loaded from project-data.json.</p>
+      </footer>
+    </main>
+
+    <script>
+      "use strict";
+
+      const grid = document.getElementById("project-grid");
+      const overview = document.querySelector(".overview");
+      const projectCount = document.getElementById("project-count");
+      const messages = {
+        loading: document.getElementById("loading-message"),
+        empty: document.getElementById("empty-message"),
+        error: document.getElementById("error-message")
+      };
+      const statusClasses = new Map([
+        ["active", "status-badge--active"],
+        ["on track", "status-badge--on-track"],
+        ["at risk", "status-badge--at-risk"],
+        ["blocked", "status-badge--blocked"],
+        ["completed", "status-badge--completed"]
+      ]);
+      const priorityClasses = new Map([
+        ["high", "priority-tag--high"],
+        ["medium", "priority-tag--medium"],
+        ["low", "priority-tag--low"]
+      ]);
+      let isLoading = false;
+
+      function element(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function hideMessages() {
+        for (const message of Object.values(messages)) {
+          message.hidden = true;
+          message.replaceChildren();
+        }
+      }
+
+      function showMessage(state, title, explanation, allowRetry = false) {
+        hideMessages();
+        const message = messages[state];
+        message.hidden = false;
+        message.append(
+          element("p", "message-title", title),
+          element("p", "", explanation)
+        );
+        if (allowRetry) {
+          const button = element("button", "message-action", "Retry loading projects");
+          button.type = "button";
+          button.addEventListener("click", loadProjects);
+          message.append(button);
+        }
+      }
+
+      function validateProjects(data) {
+        if (data === null || typeof data !== "object" || Array.isArray(data) ||
+            !Array.isArray(data.projects)) {
+          throw new Error('Invalid project data: expected an object with a "projects" array.');
+        }
+        const requiredFields = ["name", "owner", "status", "recentActivity", "priority"];
+        data.projects.forEach((project, index) => {
+          const location = `Project ${index + 1}`;
+          if (project === null || typeof project !== "object" || Array.isArray(project)) {
+            throw new Error(`Invalid project data: ${location} must be an object.`);
+          }
+          for (const field of requiredFields) {
+            if (typeof project[field] !== "string" || project[field].trim() === "") {
+              throw new Error(`Invalid project data: ${location} requires a nonempty "${field}" string.`);
+            }
+          }
+          if (Object.hasOwn(project, "summary") && typeof project.summary !== "string") {
+            throw new Error(`Invalid project data: ${location}'s optional "summary" must be a string.`);
+          }
+        });
+        return data.projects;
+      }
+
+      function badge(baseClass, value, classes) {
+        const node = element("span", baseClass, value.trim());
+        const modifier = classes.get(value.trim().toLowerCase());
+        if (modifier) node.classList.add(modifier);
+        return node;
+      }
+
+      function renderProject(project) {
+        const card = element("li", "project-card");
+        const header = element("header", "card-header");
+        const status = badge("status-badge", project.status, statusClasses);
+        status.append(element("span", "visually-hidden", " status"));
+        header.append(element("h3", "project-name", project.name.trim()), status);
+        card.append(header);
+        if (project.summary && project.summary.trim()) {
+          card.append(element("p", "project-summary", project.summary.trim()));
+        }
+
+        const metadata = element("dl", "project-meta");
+        const owner = element("div", "meta-item");
+        owner.append(
+          element("dt", "meta-label", "Owner"),
+          element("dd", "project-owner", project.owner.trim())
+        );
+        const priority = element("div", "meta-item");
+        const priorityValue = element("dd");
+        priorityValue.append(badge("priority-tag", project.priority, priorityClasses));
+        priority.append(element("dt", "meta-label", "Priority"), priorityValue);
+        metadata.append(owner, priority);
+
+        const activity = element("footer", "project-activity");
+        activity.append(
+          element("p", "meta-label", "Recent activity"),
+          element("p", "activity-text", project.recentActivity.trim())
+        );
+        card.append(metadata, activity);
+        return card;
+      }
+
+      function renderProjects(projects) {
+        const fragment = document.createDocumentFragment();
+        for (const project of projects) fragment.append(renderProject(project));
+        grid.replaceChildren(fragment);
+        document.getElementById("total-count").textContent = String(projects.length);
+        document.getElementById("priority-count").textContent = String(
+          projects.filter(project => project.priority.trim().toLowerCase() === "high").length
+        );
+        document.getElementById("attention-count").textContent = String(
+          projects.filter(project => ["at risk", "blocked"].includes(project.status.trim().toLowerCase())).length
+        );
+        overview.hidden = false;
+        projectCount.textContent = `${projects.length} ${projects.length === 1 ? "project" : "projects"}`;
+        if (projects.length === 0) {
+          showMessage("empty", "No projects yet",
+            "The project list is empty. Add projects to project-data.json, then retry to see them here.", true);
+        } else {
+          hideMessages();
+        }
+      }
+
+      async function loadProjects() {
+        if (isLoading) return;
+        isLoading = true;
+        grid.setAttribute("aria-busy", "true");
+        grid.replaceChildren();
+        overview.hidden = true;
+        projectCount.textContent = "Loading projects";
+        showMessage("loading", "Loading projects", "Getting the latest project snapshot…");
+
+        try {
+          if (window.location.protocol === "file:") {
+            throw new Error(
+              "This dashboard needs a local web server. In VS Code, run “Run Project Pulse Dashboard”, " +
+              "or run python3 -m http.server 5500 from the app directory. " +
+              "Then open http://localhost:5500/index.html and retry there."
+            );
+          }
+          let response;
+          try {
+            response = await fetch("project-data.json", { cache: "no-store" });
+          } catch {
+            throw new Error("Could not reach project-data.json. Check that the local web server is running and your connection is available, then retry.");
+          }
+          if (!response.ok) {
+            throw new Error(`Could not load project-data.json (HTTP ${response.status}). Check that the file exists and the server allows access, then retry.`);
+          }
+          let data;
+          try {
+            data = await response.json();
+          } catch {
+            throw new Error("Could not read project-data.json as valid JSON. Check the file’s syntax, save it, and retry.");
+          }
+          renderProjects(validateProjects(data));
+        } catch (error) {
+          grid.replaceChildren();
+          overview.hidden = true;
+          projectCount.textContent = "Projects unavailable";
+          showMessage("error", "Projects couldn’t be loaded",
+            error instanceof Error ? error.message : "An unexpected error occurred. Reload the page or retry.", true);
+        } finally {
+          grid.setAttribute("aria-busy", "false");
+          isLoading = false;
+        }
+      }
+
+      loadProjects();
+    </script>
+  </body>
+</html>
